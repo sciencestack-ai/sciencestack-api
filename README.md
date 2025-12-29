@@ -1,6 +1,30 @@
-# ScienceStack API v1
+# ScienceStack API v1 (Beta)
 
-Programmatic access to structured academic paper content. Returns parsed LaTeX as queryable tokens - not PDFs, not raw text.
+Access arXiv papers as structured, queryable data.
+
+This API is designed for AI agents, research tooling, and programmatic analysis. 
+
+ScienceStack parses arXiv papers directly from their LaTeX source — not PDFs, not OCR.
+The result is a lossless, hierarchical representation of the paper that can be queried
+by section, equation, figure, table, or theorem.
+
+
+|  | ScienceStack | PDF + OCR |
+|--|:------------:|:---------:|
+| Parsed from LaTeX source (no OCR) | ✓ | ✗ |
+| Pre-parsed, low-latency access | ✓ | ✗ |
+| Structured AST (stable node IDs) | ✓ | ✗ |
+| Clean LaTeX equations | ✓ | ✗ |
+| AI summaries (paper + section) | ✓ | ✗ |
+| Direct figure URLs + dimensions | ✓ | ✗ |
+| Tables with structured data | ✓ | ✗ |
+| Export to Markdown / LaTeX / text | ✓ | ✗ |
+| Math environments as first-class objects | ✓ | ✗ |
+| Resolved citations (Semantic Scholar) | ✓ | ✗ |
+| Section hierarchy with depth | ✓ | ✗ |
+| Algorithm and code blocks | ✓ | ✗ |
+
+**Coverage:** All papers in [sciencestack.ai/explore](https://sciencestack.ai/explore) are available in the API
 
 **Base URL:** `https://sciencestack.ai/api/v1`
 
