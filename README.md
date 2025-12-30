@@ -694,7 +694,7 @@ Get bibliography entries with optional enrichment data.
 |-------|------|-------------|
 | `limit` | int | Max results (default: 100, max: 500) |
 | `offset` | int | Pagination offset |
-| `format` | string | `raw` (default) or `text` |
+| `format` | string | `raw` (default), or `latex` (BibItem or BibTeX) |
 
 **Response:**
 ```json
