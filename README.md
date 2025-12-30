@@ -2,12 +2,30 @@
 
 Access arXiv papers as structured, queryable data.
 
-This API is designed for AI agents, research tooling, and programmatic analysis. 
+This API is designed for AI agents, research tooling, and programmatic analysis.
 
 ScienceStack parses arXiv papers directly from their LaTeX source — not PDFs, not OCR.
 The result is a lossless, hierarchical representation of the paper that can be queried
 by section, equation, figure, table, or theorem.
 
+## Table of Contents
+
+- [Authentication](#authentication)
+- [Why This API?](#why-this-api)
+- [Quick Start](#quick-start)
+- [Token Types](#token-types)
+- [Use Cases](#use-cases)
+- [Endpoints](#endpoints)
+  - [Search](#search)
+  - [Papers](#papers)
+  - [Nodes](#nodes)
+  - [References](#references)
+- [Content Formats](#content-formats)
+- [Errors](#errors)
+- [Pagination](#pagination)
+- [Versioning](#versioning)
+
+---
 
 |  | ScienceStack | PDF + OCR |
 |--|:------------:|:---------:|
@@ -109,6 +127,117 @@ curl "https://sciencestack.ai/api/v1/papers/1706.03762/theorems" \
 # Get a specific section by nodeId
 curl "https://sciencestack.ai/api/v1/papers/1706.03762/nodes?nodeId=sec:3.2" \
   -H "x-api-key: $SCIENCESTACK_API_KEY"
+```
+
+## Token Types
+
+When using `format=raw` (the default for `/nodes`), responses contain structured token trees. Each token has a `type` field indicating its semantic role.
+
+### Base Token Structure
+
+All tokens share this base structure:
+
+```typescript
+interface BaseToken {
+  type: TokenType;           // Token type (see below)
+  content: varies;           // Content varies by type (see table)
+  metadata?: {               // Optional metadata
+    numbering?: string;      // Number label (e.g., "3.1" for equations)
+    anchor?: string;         // HTML anchor ID
+    label?: string;          // LaTeX label for cross-references
+    [key: string]: any;      // Additional type-specific metadata
+  };
+}
+```
+
+### Type Reference
+
+| Type | Content Type | Description |
+|------|--------------|-------------|
+| **Document Structure** | | |
+| `document` | `BaseToken[]` | Document container. Often root, but not always. |
+| `title` | `BaseToken[]` | Document title |
+| `section` | `BaseToken[]` | Section with hierarchical levels. Has `title` (section heading tokens) and `level` (1-5, where section→subsection→subsubsection→paragraph→subparagraph). |
+| `abstract` | `BaseToken[]` | Document abstract |
+| `appendix` | `BaseToken[]` | Marks document appendix section |
+| `command` | `string \| null` | LaTeX command. Has `command` field (e.g., 'textbf', 'emph'). |
+| **Text** | | |
+| `text` | `string` | Plain text content |
+| `quote` | `BaseToken[]` | Block quote |
+| **Environments** | | |
+| `environment` | `BaseToken[]` | Generic LaTeX environment `\begin{...}`, where `...` is in its `name` field e.g. `center`, `minipage`, etc |
+| `math_env` | `BaseToken[]` | Math environment (theorem, lemma, proof, definition, etc.). Has `name` field specifying type. |
+| `group` | `BaseToken[]` | Group of tokens (typically from braces) |
+| **Tables & Figures** | | |
+| `figure` | `BaseToken[]` | Figure container with captions and images |
+| `subfigure` | `BaseToken[]` | Subfigure within a figure |
+| `table` | `BaseToken[]` | Table container with captions and tabular data |
+| `subtable` | `BaseToken[]` | Subtable within a table |
+| `tabular` | `TableCell[][]` | 2D array of cells. Each cell has: `content` (BaseToken[]), optional `styles`, `colspan`, `rowspan`. |
+| `caption` | `BaseToken[]` | Caption for figures, tables, algorithms |
+| **Graphics** | | |
+| `includegraphics` | `string` | Image file path/URL |
+| `includepdf` | `string` | Included PDF file |
+| `diagram` | `string` | Diagram code (TikZ, picture). Has `name` field for diagram type. |
+| **Lists** | | |
+| `list` | `BaseToken[]` | List container. Has `name` field: 'enumerate', 'itemize', or 'description'. |
+| `item` | `BaseToken[]` | List item |
+| **Math & Technical** | | |
+| `equation` | `string \| BaseToken[]` | Mathematical equation. Content is LaTeX math code or parsed tokens. |
+| `equation_array` | `RowToken[]` | Array of equations (align, matrix, etc.). Has `name` field for array type. |
+| `row` | `BaseToken[][]` | Row in equation array. Content is array of columns. |
+| `code` | `string` | Code block/inline. Has `display` field: 'inline' or 'block'. |
+| `algorithm` | `BaseToken[]` | Algorithm container |
+| `algorithmic` | `string` | Algorithmic pseudocode |
+| **References & Links** | | |
+| `citation` | `string[]` | Citation keys (e.g., `['Smith2020', 'Jones2021']`) |
+| `ref` | `string[]` | Cross-reference labels (e.g., `['fig:myfig', 'tab:mytable']`) |
+| `url` | `string` | URL string. Optional `title` field for link text. |
+| `footnote` | `BaseToken[]` | Footnote content |
+| **Bibliography** | | |
+| `bibliography` | `BaseToken[]` | Bibliography container |
+| `bibitem` | `string \| BaseToken[]` | Bibliography entry. Has `key` (citation key) and `format` ('bibtex' or 'bibitem'). |
+| **Metadata** | | |
+| `maketitle` | `BaseToken[]` | Title block container |
+| `author` | `BaseToken[]` | Author metadata |
+
+### Example: Parsing a Section
+
+```json
+{
+  "type": "section",
+  "content": [
+    {"type": "text", "content": "We introduce..."},
+    {
+      "type": "equation",
+      "content": "E = mc^2",
+      "metadata": {"numbering": "1", "anchor": "eq-1", "label": "eq:energy"}
+    }
+  ],
+  "metadata": {
+    "title": [{"type": "text", "content": "Introduction"}],
+    "level": 1,
+    "numbering": "1"
+  }
+}
+```
+
+### Example: Table Cell Structure
+
+```json
+{
+  "type": "tabular",
+  "content": [
+    [
+      {"content": [{"type": "text", "content": "Model"}], "styles": ["bold"]},
+      {"content": [{"type": "text", "content": "Accuracy"}], "colspan": 2}
+    ],
+    [
+      {"content": [{"type": "text", "content": "BERT"}]},
+      {"content": [{"type": "text", "content": "94.5%"}]}
+    ]
+  ]
+}
 ```
 
 ## Use Cases
